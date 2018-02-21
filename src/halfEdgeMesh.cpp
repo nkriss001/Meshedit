@@ -10,7 +10,7 @@ namespace CGL {
 
   bool Edge::isBoundary( void ) const
   {
-    return halfedge()->face()->isBoundary();
+    return ((halfedge()->twin()->isBoundary() || halfedge()->isBoundary()));
   }
 
   Vector3D Face::normal( void ) const

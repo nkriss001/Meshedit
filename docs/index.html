@@ -25,42 +25,71 @@
 
 <h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2018</h1>
 <h1 align="middle">Project 2: Mesh Editor</h1>
-<h2 align="middle">YOUR NAME, CS184-???</h2>
+<h2 align="middle">Nicholas Kriss, CS184-aar</h2>
 
 <br><br>
 
 <div>
 
 <h2 align="middle">Overview</h2>
-<p>Give a high-level overview of what you implemented in this project. Think about what you've built as a whole. Share your thoughts on what interesting things you've learned from completing the project.</p>
+<p>For this project, I implemented Bezier curves and surfaces in order to model 3D triangle meshes. I also implemented functions to split and flip edges of the mesh, in order to upsample meshes by Loop subdivision. I learned how difficult it can be to keep track of all the elements in a mesh and how annoying references in C++ can be. </p>
 
 <h2 align="middle">Section I: Bezier Curves and Surfaces</h2>
 
 <h3 align="middle">Part 1: Bezier curves with 1D de Casteljau subdivision</h3>
 
-<p>Here is an example 2x2 gridlike structure using an HTML table. Each <b>tr</b> is a row and each <b>td</b> is a column in that row. You might find this useful for framing and showing your result images in an organized fashion.</p>
+<p>De Castlejau's algorithm is a method of generating a degree n Bezier curve recursively from a set of n+1 initial points. At each level, we use a value t between 0 and 1 to linearly interpolate between every pair of points p_i and p_(i+1). We continue this process using each newly generated set of points until only one point remains, which is the point on the Bezier curve corresponding to t. Performing this process for every possible t produces the Bezier curve. In my program, I return immediately if all n + 1 levels of the recursive process have been completed. Otherwise, I retrieve the vector containing the last level of evaluated points and iterate through, performing linear interpolation on each pair of consecutive points and pushing these points onto a new vector. I then push this vector onto the vector of all evaluated levels.</p>
 
 <div align="middle">
   <table style="width=100%">
     <tr>
       <td>
-        <img src="images/image1.png" align="middle" width="400px"/>
-        <figcaption align="middle">Caption goes here.</figcaption>
+        <img src="curve0.png" align="middle" width="300px"/>
+        <figcaption align="middle">Initial points</figcaption>
       </td>
       <td>
-        <img src="images/image2.png" align="middle" width="400px"/>
-        <figcaption align="middle">Caption goes here.</figcaption>
+        <img src="curve1.png" align="middle" width="300px"/>
+        <figcaption align="middle">After 1 iteration</figcaption>
+      </td>
+      <td>
+        <img src="curve2.png" align="middle" width="300px"/>
+        <figcaption align="middle">After 2 iterations</figcaption>
       </td>
     </tr>
     <br>
     <tr>
       <td>
-        <img src="images/image3.png" align="middle" width="400px"/>
-        <figcaption align="middle">Caption goes here.</figcaption>
+        <img src="curve3.png" align="middle" width="300px"/>
+        <figcaption align="middle">After 3 iterations</figcaption>
       </td>
       <td>
-        <img src="images/image4.png" align="middle" width="400px"/>
-        <figcaption align="middle">Caption goes here.</figcaption>
+        <img src="curve4.png" align="middle" width="300px"/>
+        <figcaption align="middle">After 4 iterations</figcaption>
+      </td>
+      <td>
+        <img src="curve5.png" align="middle" width="300px"/>
+        <figcaption align="middle">After 5 iterations</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="final1.png" align="middle" width="300px"/>
+        <figcaption align="middle">The complete Bezier curve, <br /> with steps to calculate at t = 0.5</figcaption>
+      </td>
+      <td>
+        <img src="final2.png" align="middle" width="300px"/>
+        <figcaption align="middle">The complete Bezier curve <br /> without intermediate steps</figcaption>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <img src="newFinal1.png" align="middle" width="300px"/>
+        <figcaption align="middle">A modification of the Bezier curve, <br /> with steps to calculate at a new t</figcaption>
+      </td>
+      <td>
+        <img src="newFinal2.png" align="middle" width="300px"/>
+        <figcaption align="middle">The complete new Bezier curve <br /> without intermediate steps</figcaption>
       </td>
     </tr>
   </table>
@@ -69,22 +98,234 @@
 
 <h3 align="middle">Part 2: Bezier surfaces with separable 1D de Casteljau subdivision</h3>
 
+<p>For Bezier surfaces, we are given a 4x4 set of control points. For each set of 4 points, we use 1D de Casteljau to find the point on the Bezier curve for parameter u. This gives us 4 new points, which we again use 1D de Casteljau on to find the point on the Bezier curve for parameter v. These two steps give us the point on the Bezier surface for parameter (u, v). To implement this, I first implemented the evaluate1D function to perform 1D de Casteljau on any set of points, given parameter t, by starting with the vector of points and replacing that vector with each new set of interpolated points, until only one remained. I then easily evaluated the Bezier surfaces by evaluating each column of control points separately at u, and then evaluating the resulting points at v.</p>
 
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="teapot1.png" align="middle" width="400px"/>
+        <figcaption align="middle">teapot.bez from the front</figcaption>
+      </td>
+      <td>
+        <img src="teapot2.png" align="middle" width="400px"/>
+        <figcaption align="middle">teapot.bez from the back</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
 
 <h2 align="middle">Section II: Sampling</h2>
 
 <h3 align="middle">Part 3: Average normals for half-edge meshes</h3>
 
+<p>I initialized a vector (0, 0, 0) in which to store the sum of the normal vectors of the surrounding faces. I then found the twin of the halfedge of the given vertex, so that this halfedge h is pointing towards the vertex. For each triangle surrounding the vertex, I found the positions of the other two vertices by taking the next of the initial halfedge the appropriate number of times, and I subtracted the vertices to find two edges of the triangle. I then took the cross product of those edges in a counterclockwise manner, relative to the vertex, and added that to the initial normal vector. To iterate around the triangels, I find the next edge after h and take its twin, and continue until h is the same as an initial reference that I stored. I used a do-while loop to make sure I don't check for this ending condition immediately, since I always start with the initial halfedge equal to the saved initial halfedge. Finally, I used the built-in norm function to find the norm of the normal vector, and divided the normal vector by its norm to normalize it.</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="smooth1.png" align="middle" width="400px"/>
+        <figcaption align="middle">Default shading without smoothed normals (front)</figcaption>
+      </td>
+      <td>
+        <img src="smooth2.png" align="middle" width="400px"/>
+        <figcaption align="middle">Default shading with smooth normals (front)</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="smooth3.png" align="middle" width="400px"/>
+        <figcaption align="middle">Default shading without smoothed normals (back)</figcaption>
+      </td>
+      <td>
+        <img src="smooth4.png" align="middle" width="400px"/>
+        <figcaption align="middle">Default shading with smooth normals (back)</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
 
 <h3 align="middle">Part 4: Half-edge flip</h3>
 
+<p>First, I ignore trying to flip boundary edges by checking if either halfedge is a boundary and if so returning the original edge with no changes. Otherwise, I let the vertices of the halfedge h0 and its twin hTwin0, which will be the vertices of the edge I want to flip, be b and c respectively. I find the halfedges corresponding to each triangle, and let a be the vertex reached by following h0 and d be the vertex reached by following hTwin0. I also get the faces corresponding to h0 and hTwin0, called face and faceTwin respectively. I then set the halfedges of the flipped edge to point to the correct next halfedge and to have vertices a and d, and fixed the next edge and face of the appropriate halfedges. Finally, I set the halfedges of the two faces and vertices b and c, in case the original halfedge is one of the edges I changed. This last part is what cost me the most time to debug, with the rest being fairly easy. </p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="flips1.png" align="middle" width="400px"/>
+        <figcaption align="middle">teapot.dae with no flips</figcaption>
+      </td>
+      <td>
+        <img src="flips2.png" align="middle" width="400px"/>
+        <figcaption align="middle">teapot.dae with some flips</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
 
 <h3 align="middle">Part 5: Half-edge split</h3>
+First, I ignore trying to split boundary edges with the same check as for flips. Then I move around the two triangles and identify all the current halfedges, edges, vertices, and faces. I also create three new edges, three pairs of halfedges, one for each edge, and two faces. For part 6, I only label the two edges from a and d as new, and leave the edges from b and c as old edges. Finally, I find the midpoint of the original edge and move around the four triangles, setting new pointers as appropriate. I leave the original edge intact, except for changing one of its halfedges to m to replace b, and leave the faces associated with edges between a and b and c and d intact. The main difficulty in debugging was forgetting to assign halfedges to some of the new values, specifically the new faces. I caught this by commenting out different parts of my code until I realized I got a segmentation fault whenever I forget to set a value for a new iter, and then looked until I found the problem. </p>
 
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="splits1.png" align="middle" width="300px"/>
+        <figcaption align="middle">teapot.dae with no splits</figcaption>
+      </td>
+      <td>
+        <img src="splits2.png" align="middle" width="300px"/>
+        <figcaption align="middle">teapot.dae with some splits</figcaption>
+      </td>
+      <td>
+        <img src="splits3.png" align="middle" width="300px"/>
+        <figcaption align="middle">teapot.dae with some splits and flips</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
 
 <h3 align="middle">Part 6: Loop subdivision for mesh upsampling</h3>
 
-  
+<p>First, I iterate through every vertex in the original mesh, setting the isNew parameter to false, finding the number of surrounding vertices and their positions, and using these to calculate the new position for the vertex. Then I loop through each edge in the original mesh, finding the positions of the the connected two vertices and the two opposite vertices and using these to calculate the new position for the midpoint of the edge. Then I iterate through all edges again, checking if the edge is connected to a new vertex or not. If it is not, I split the edge, setting the resulting vertex as new and setting its new position with the edge's new position only if the split was successful. If the edge is new and connected to exactly one new vertex, I flip the edge and do not split. Finally, I iterate through all vertices again, setting the position of each to its already calculated new position. </p>
+
+<p>Loop subdivision works very well on curved surfaces with no boundary edges, like teapot.dae, causing the triangles to be correctly subdivided into four new triangles. It works less well on surfaces with boundaries, like beetle.dae, since the boundary edges cannot be split, so we end up with fewer triangles than we would like. Loop subdivision causes sharp corners and edges to be smoothed out, like in cube.dae and torus/input.dae. We can mitigate these effects somewhat by pre-splitting the edges on the faces incident to the sharp edge.</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="loop1.png" align="middle" width="300px"/>
+        <figcaption align="middle">teapot.dae default</figcaption>
+      </td>
+      <td>
+        <img src="loop2.png" align="middle" width="300px"/>
+        <figcaption align="middle">teapot.dae after one iteration of Loop subdivision</figcaption>
+      </td>
+      <td>
+        <img src="loop3.png" align="middle" width="300px"/>
+        <figcaption align="middle">teapot.dae after two iterations of Loop subdivision</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="loop4.png" align="middle" width="300px"/>
+        <figcaption align="middle">beetle.dae default</figcaption>
+      </td>
+      <td>
+        <img src="loop5.png" align="middle" width="300px"/>
+        <figcaption align="middle">beetle.dae after one iteration of Loop subdivision</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="loop6.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae default</figcaption>
+      </td>
+      <td>
+        <img src="loop7.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae after one iteration of Loop subdivision</figcaption>
+      </td>
+      <td>
+        <img src="loop8.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae after two iterations of Loop subdivision</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="loop9.png" align="middle" width="300px"/>
+        <figcaption align="middle">torus/input.dae default</figcaption>
+      </td>
+      <td>
+        <img src="loop10.png" align="middle" width="300px"/>
+        <figcaption align="middle">torus/input.dae after one iteration of Loop subdivision</figcaption>
+      </td>
+      <td>
+        <img src="loop11.png" align="middle" width="300px"/>
+        <figcaption align="middle">torus/input.dae after two iterations of Loop subdivision</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="torus1.png" align="middle" width="300px"/>
+        <figcaption align="middle">torus/input.dae, with a good look at a sharp edge</figcaption>
+      </td>
+      <td>
+        <img src="torus2.png" align="middle" width="300px"/>
+        <figcaption align="middle">torus/input.dae after two iterations of Loop subdivision, with the sharp edge smoothed out</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="torus3.png" align="middle" width="300px"/>
+        <figcaption align="middle">torus/input.dae, with pre-split edges</figcaption>
+      </td>
+      <td>
+        <img src="torus4.png" align="middle" width="300px"/>
+        <figcaption align="middle">torus/input.dae after two iterations of Loop subdivision, with a relatively sharper edge</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
+<p>We can see that cube.dae becomes increasingly asymmetric as we perform further Loop subdivisions. This is because the cube doesn't actually start out symmetric, since each vertex in the original mesh is connected to neighboring vertices at relatively different distances, rather than each vertex having neighbors of the same relative distance and position. This causes different new positions to be calculated for the different vertices, leading to asymmetry that causes further relative differences in later iterations. We can fix this by pre-splitting every edge on the face of the cube, so that each vertex has the same number of neighbors in the same relative positions, so the average of its neighbors will be similar for each vertex.</p>
+
+<div align="middle">
+  <table style="width=100%">
+    <tr>
+      <td>
+        <img src="cube1.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae after one Loop subdivision from the front</figcaption>
+      </td>
+      <td>
+        <img src="cube2.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae after one Loop subdivision from the back</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="cube3.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae after three iterations of Loop subdivision from one side</figcaption>
+      </td>
+      <td>
+        <img src="cube4.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae after three iterations of Loop subdivision from the other side</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="cube5.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae with pre-splitting after one Loop subdivision from the front</figcaption>
+      </td>
+      <td>
+        <img src="cube6.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae with pre-splitting after one Loop subdivision from the back</figcaption>
+      </td>
+    </tr>
+    <br>
+    <tr>
+      <td>
+        <img src="cube7.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae with pre-splitting after three iterations of Loop subdivision from one side</figcaption>
+      </td>
+      <td>
+        <img src="cube8.png" align="middle" width="300px"/>
+        <figcaption align="middle">cube.dae with pre-splitting after three iterations of Loop subdivision from the other side</figcaption>
+      </td>
+    </tr>
+  </table>
+</div>
+
 <h2 align="middle">Section III: Mesh Competition</h2>
 <p>If you are not participating in the optional mesh competition, don't worry about this section!</p>
 
